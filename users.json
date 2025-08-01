@@ -1,12 +1,1 @@
-{
-  "admin": {
-    "password": "secret",
-    "role": "admin",
-    "is_active": true
-  },
-  "egor": {
-    "password": "2908",
-    "role": "user",
-    "is_active": true
-  }
-}
+
