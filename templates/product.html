@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ product.name }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        .logout-link {
+            padding: 8px 15px;
+            background: #dc3545;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .product-details {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .product-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .product-price {
+            color: #007bff;
+            font-weight: bold;
+            font-size: 20px;
+            margin: 15px 0;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 8px 15px;
+            background: #6c757d;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .calculator-form .form-group {
+            margin-bottom: 15px;
+        }
+
+        .calculator-form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .calculator-form select,
+        .calculator-form input[type="number"],
+        .calculator-form input[type="checkbox"] {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+
+        .calculator-form input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+        }
+        .calculated-price {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .table-field {
+            margin-bottom: 20px;
+        }
+        .table-field table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        .table-field th, .table-field td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        .table-field th {
+            background-color: #f2f2f2;
+        }
+        .table-field .cell-label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .table-field input[type="radio"] {
+            margin: 0 auto;
+            display: block;
+        }
+        .no-selection-option {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .table-actions {
+            margin-top: 10px;
+            text-align: right;
+        }
+        .clear-selection-btn {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .clear-selection-btn:hover {
+            background: #e9ecef;
+        }
+        .table-field table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        .table-field th, .table-field td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        .table-field th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .table-field td {
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Страница товара</h1>
+        <a class="logout-link" href="/logout">Выйти</a>
+    </div>
+
+    <div class="product-details">
+        <div class="product-name">{{ product.name }}</div>
+        <p>{{ product.description }}</p>
+    </div>
+
+    {% if product.form_config %}
+        <div class="calculator-form">
+            <h3>Конфигуратор товара</h3>
+            <form id="price-calculator">
+                <!-- Форма будет сгенерирована динамически -->
+            </form>
+            <div class="calculated-price">
+                Итоговая цена: <span id="final-price">{{ product.price }}</span>
+            </div>
+        </div>
+    <script>
+        // Конфигурация формы из базы данных
+        const formConfig = {{ product.form_config | tojson | safe }};
+        const basePrice = {{ product.price }};
+
+        // Генерация формы
+        const form = document.getElementById('price-calculator');
+        let formData = {};
+
+        formConfig.forEach(field => {
+            const group = document.createElement('div');
+            group.className = 'form-group';
+
+            const label = document.createElement('label');
+            label.textContent = field.label;
+            label.htmlFor = field.name;
+            group.appendChild(label);
+
+            let input;
+            switch(field.type) {
+                case 'select':
+                    const select = document.createElement('select');
+                    select.id = field.name;
+                    select.name = field.name;
+
+                    field.options.forEach(option => {
+                        const optionElem = document.createElement('option');
+                        optionElem.value = option.value;
+                        optionElem.textContent = option.label;
+                        optionElem.dataset.modType = option.mod_type;
+                        optionElem.dataset.modValue = option.mod_value;
+                        select.appendChild(optionElem);
+                    });
+
+                    input = select;
+                    formData[field.name] = select.value;
+                    break;
+
+                case 'number':
+                    const numberInput = document.createElement('input');
+                    numberInput.type = 'number';
+                    numberInput.id = field.name;
+                    numberInput.name = field.name;
+                    numberInput.min = field.min || 1;
+                    numberInput.max = field.max || 1000000;
+                    numberInput.value = field.default || 1;
+                    input = numberInput;
+                    formData[field.name] = numberInput.value;
+                    break;
+
+                case 'checkbox':
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.id = field.name;
+                    checkbox.name = field.name;
+                    checkbox.checked = field.checked || false;
+                    checkbox.dataset.modType = field.mod_type;
+                    checkbox.dataset.modValue = field.mod_value;
+
+                    input = checkbox;
+                    label.remove();
+                    group.appendChild(input);
+                    group.appendChild(document.createTextNode(field.label));
+                    break;
+
+                case 'table':
+                    // Добавляем опцию "Не выбирать" если разрешено
+                    if (field.allow_no_selection) {
+                        const noSelectionDiv = document.createElement('div');
+                        noSelectionDiv.className = 'no-selection-option';
+
+                        const noSelectionRadio = document.createElement('input');
+                        noSelectionRadio.type = 'radio';
+                        noSelectionRadio.name = field.name;
+                        noSelectionRadio.value = 'none';
+                        noSelectionRadio.id = `${field.name}-none`;
+                        noSelectionRadio.dataset.modType = 'none';
+                        noSelectionRadio.dataset.modValue = '0';
+
+                        const noSelectionLabel = document.createElement('label');
+                        noSelectionLabel.htmlFor = `${field.name}-none`;
+                        noSelectionLabel.textContent = 'Не выбирать';
+
+                        noSelectionDiv.appendChild(noSelectionRadio);
+                        noSelectionDiv.appendChild(noSelectionLabel);
+                        group.appendChild(noSelectionDiv);
+
+                        // Устанавливаем "Не выбирать" по умолчанию
+                        noSelectionRadio.checked = true;
+                        formData[field.name] = 'none';
+                    }
+
+                    const tableContainer = document.createElement('div');
+                    tableContainer.className = 'table-field';
+
+                    const table = document.createElement('table');
+                    const tbody = document.createElement('tbody');
+
+                    // Заголовки столбцов
+                    const thead = document.createElement('thead');
+                    const headerRow = document.createElement('tr');
+                    headerRow.appendChild(document.createElement('th')); // Пустая ячейка для заголовков строк
+
+                    for (let j = 0; j < field.cols; j++) {
+                        const th = document.createElement('th');
+                        th.textContent = field.col_labels ? field.col_labels[j] || `Колонка ${j+1}` : `Колонка ${j+1}`;
+                        headerRow.appendChild(th);
+                    }
+                    thead.appendChild(headerRow);
+                    table.appendChild(thead);
+
+                    // Создаем строки таблицы
+                    for (let i = 0; i < field.rows; i++) {
+                        const row = document.createElement('tr');
+
+                        // Заголовок строки
+                        const rowHeader = document.createElement('th');
+                        rowHeader.textContent = field.row_labels ? field.row_labels[i] || `Строка ${i+1}` : `Строка ${i+1}`;
+                        row.appendChild(rowHeader);
+
+                        for (let j = 0; j < field.cols; j++) {
+                            const cell = document.createElement('td');
+                            const cellData = field.cells[i][j];
+
+                            const cellDiv = document.createElement('div');
+                            cellDiv.className = 'cell-content';
+
+                            const radio = document.createElement('input');
+                            radio.type = 'radio';
+                            radio.name = field.name;
+                            radio.value = `${i}-${j}`;
+                            radio.dataset.modType = cellData.mod_type;
+                            radio.dataset.modValue = cellData.mod_value;
+                            cellDiv.appendChild(radio);
+
+                            cell.appendChild(cellDiv);
+                            row.appendChild(cell);
+                        }
+
+                        tbody.appendChild(row);
+                    }
+
+                    table.appendChild(tbody);
+                    tableContainer.appendChild(table);
+                    group.appendChild(tableContainer);
+
+                    // Добавляем кнопку очистки выбора
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'table-actions';
+
+                    const clearBtn = document.createElement('button');
+                    clearBtn.type = 'button';
+                    clearBtn.className = 'clear-selection-btn';
+                    clearBtn.textContent = 'Отменить выбор';
+                    clearBtn.addEventListener('click', () => {
+                        const noSelectionRadio = document.getElementById(`${field.name}-none`);
+                        if (noSelectionRadio) {
+                            noSelectionRadio.checked = true;
+                            formData[field.name] = 'none';
+                        } else {
+                            formData[field.name] = undefined;
+                        }
+
+                        const radios = tableContainer.querySelectorAll(`input[type="radio"][name="${field.name}"]`);
+                        radios.forEach(radio => {
+                            if (radio.value !== 'none') {
+                                radio.checked = false;
+                            }
+                        });
+
+                        calculatePrice();
+                    });
+
+                    actionsDiv.appendChild(clearBtn);
+                    group.appendChild(actionsDiv);
+                    break;
+            }
+
+            if (field.type !== 'checkbox' && field.type !== 'table') {
+                group.appendChild(input);
+            }
+
+            form.appendChild(group);
+        });
+
+        // Функция расчета цены
+        function calculatePrice() {
+            let quantity = 1;
+            const quantityField = formConfig.find(field => field.name === 'quantity' && field.type === 'number');
+            if (quantityField) {
+                quantity = parseFloat(formData['quantity']) || 1;
+            }
+
+            let total = basePrice * quantity;
+
+            formConfig.forEach(field => {
+                if (field.name === 'quantity') return;
+
+                switch(field.type) {
+                    case 'select':
+                        const selectedOption = form.querySelector(`#${field.name} option:checked`);
+                        if (selectedOption && selectedOption.dataset.modValue) {
+                            const modValue = parseFloat(selectedOption.dataset.modValue) || 0;
+                            const modType = selectedOption.dataset.modType;
+
+                            if (modType === 'add') {
+                                total += modValue;
+                            } else if (modType === 'multiply') {
+                                total *= modValue;
+                            }
+                        }
+                        break;
+
+                    case 'number':
+                        const numberValue = parseFloat(formData[field.name]) || 0;
+                        const unitPrice = parseFloat(field.price_mod) || 0;
+                        total += numberValue * unitPrice;
+                        break;
+
+                    case 'checkbox':
+                        const checkbox = document.getElementById(field.name);
+                        if (checkbox.checked && checkbox.dataset.modValue) {
+                            const modValue = parseFloat(checkbox.dataset.modValue) || 0;
+                            const modType = checkbox.dataset.modType;
+
+                            if (modType === 'add') {
+                                total += modValue;
+                            } else if (modType === 'multiply') {
+                                total *= modValue;
+                            }
+                        }
+                        break;
+
+                    case 'table':
+                        const selectedRadio = form.querySelector(`input[name="${field.name}"]:checked`);
+                        if (selectedRadio && selectedRadio.value !== 'none' && selectedRadio.dataset.modValue) {
+                            const modValue = parseFloat(selectedRadio.dataset.modValue) || 0;
+                            const modType = selectedRadio.dataset.modType;
+
+                            if (modType === 'add') {
+                                total += modValue;
+                            } else if (modType === 'multiply') {
+                                total *= modValue;
+                            }
+                        }
+                        break;
+                }
+            });
+
+            document.getElementById('final-price').textContent = total.toFixed(2);
+        }
+
+        // Обработчики изменений
+        form.addEventListener('change', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
+                formData[e.target.name] = e.target.value;
+                calculatePrice();
+            }
+        });
+
+        form.addEventListener('click', (e) => {
+            if (e.target.type === 'checkbox') {
+                formData[e.target.name] = e.target.checked;
+                calculatePrice();
+            }
+        });
+
+        // Первоначальный расчет
+        calculatePrice();
+    </script>
+    {% endif %}
+
+    <a href="/" class="back-link">Назад к списку товаров</a>
+</body>
+</html>

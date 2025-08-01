@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Конструктор формы расчета</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+        }
+        .builder-container {
+            display: flex;
+            gap: 20px;
+        }
+        .fields-panel {
+            width: 250px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .preview-panel {
+            flex: 1;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .field-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: grab;
+        }
+        .field-item:active {
+            cursor: grabbing;
+        }
+        .form-preview {
+            min-height: 300px;
+            border: 1px dashed #ccc;
+            padding: 15px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+        .config-panel {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            border: 1px solid #ddd;
+        }
+        .btn {
+            padding: 8px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .btn-sm {
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .option-item {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 5px;
+            align-items: center;
+        }
+        .dragging {
+            opacity: 0.5;
+        }
+        .dragover {
+            background-color: #e9ecef;
+            border: 2px dashed #007bff;
+        }
+        .field-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .field-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .price-input {
+            width: 100px;
+        }
+        .option-mod-type {
+            width: 120px;
+        }
+        .option-mod-value {
+            width: 80px;
+        }
+        .table-builder {
+            margin-top: 15px;
+        }
+        .table-builder table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        .table-builder th, .table-builder td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .table-builder th {
+            background-color: #f2f2f2;
+        }
+        .table-builder input {
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .add-row-btn, .add-col-btn {
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Конструктор формы расчета</h1>
+    </div>
+
+    <div class="builder-container">
+        <div class="fields-panel">
+            <h3>Доступные поля</h3>
+            <div class="field-item" draggable="true" data-type="number">
+                Числовое поле
+            </div>
+            <div class="field-item" draggable="true" data-type="select">
+                Выпадающий список
+            </div>
+            <div class="field-item" draggable="true" data-type="checkbox">
+                Чекбокс
+            </div>
+            <div class="field-item" draggable="true" data-type="table">
+                Таблица выбора
+            </div>
+        </div>
+
+        <div class="preview-panel">
+            <h3>Предпросмотр формы</h3>
+            <div id="form-preview" class="form-preview">
+                <!-- Форма будет создаваться здесь -->
+            </div>
+
+            <div class="actions">
+                <button id="save-form" class="btn">Сохранить форму</button>
+                <button id="cancel" class="btn btn-danger">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Хранилище конфигурации формы
+        let formConfig = [];
+
+        // Элементы DOM
+        const formPreview = document.getElementById('form-preview');
+        const fieldItems = document.querySelectorAll('.field-item');
+
+        // Функция для создания нового поля
+        function createField(type) {
+            const fieldId = `field-${Date.now()}`;
+            const field = {
+                id: fieldId,
+                type: type,
+                label: 'Новое поле',
+                name: `field_${formConfig.length + 1}`
+            };
+
+            // Добавляем специфичные свойства
+            switch(type) {
+                case 'select':
+                    field.options = [
+                        {value: 'option1', label: 'Опция 1', mod_type: 'add', mod_value: 0},
+                        {value: 'option2', label: 'Опция 2', mod_type: 'add', mod_value: 0}
+                    ];
+                    break;
+                case 'number':
+                    field.min = 0;
+                    field.max = 1000000;
+                    field.default = 0;
+                    field.price_mod = 0;  // Цена за единицу
+                    break;
+                case 'checkbox':
+                    field.checked = false;
+                    field.mod_type = 'add';  // Тип модификатора: add или multiply
+                    field.mod_value = 0;     // Значение модификатора
+                    break;
+                case 'table':
+                    field.rows = 2;
+                    field.cols = 2;
+                    field.row_labels = ['Строка 1', 'Строка 2'];
+                    field.col_labels = ['Колонка 1', 'Колонка 2'];
+                    field.cells = [];
+                    // Инициализируем пустые ячейки
+                    for (let i = 0; i < field.rows; i++) {
+                        field.cells[i] = [];
+                        for (let j = 0; j < field.cols; j++) {
+                            field.cells[i][j] = {
+                                mod_type: 'add',
+                                mod_value: 0
+                            };
+                        }
+                    }
+                    break;
+            }
+
+            return field;
+        }
+
+        function createQuantityField() {
+            return {
+                id: `field-quantity-${Date.now()}`,
+                type: 'number',
+                label: 'Количество',
+                name: 'quantity',
+                min: 1,
+                max: 1000000,
+                default: 1,
+                price_mod: 0
+            };
+        }
+
+        // Функция для отображения поля в предпросмотре
+        function renderField(field) {
+            const fieldElement = document.createElement('div');
+            fieldElement.className = 'form-group';
+            fieldElement.dataset.id = field.id;
+            fieldElement.innerHTML = `
+                <div class="field-header">
+                    <span>${field.label} (${field.type})</span>
+                    <div class="field-actions">
+                        <button class="btn btn-sm configure-field" data-id="${field.id}">Настроить</button>
+                        <button class="btn btn-sm btn-danger delete-field" data-id="${field.id}">×</button>
+                    </div>
+                </div>
+                <div class="field-preview">
+                    ${getFieldPreview(field)}
+                </div>
+            `;
+
+            formPreview.appendChild(fieldElement);
+
+            // Добавляем обработчики
+            fieldElement.querySelector('.delete-field').addEventListener('click', (e) => {
+                const id = e.target.dataset.id;
+                formConfig = formConfig.filter(f => f.id !== id);
+                e.target.closest('.form-group').remove();
+            });
+
+            fieldElement.querySelector('.configure-field').addEventListener('click', (e) => {
+                const id = e.target.dataset.id;
+                openConfigPanel(formConfig.find(f => f.id === id));
+            });
+
+            if (field.name === 'quantity') {
+                const deleteButton = fieldElement.querySelector('.delete-field');
+                deleteButton.style.display = 'none';
+            }
+        }
+
+        // Функция для предпросмотра поля
+        function getFieldPreview(field) {
+            switch(field.type) {
+                case 'number':
+                    return `<input type="number" min="${field.min}" max="${field.max}" value="${field.default}" disabled>`;
+                case 'select':
+                    return `
+                        <select disabled>
+                            ${field.options.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
+                        </select>
+                    `;
+                case 'checkbox':
+                    return `<label><input type="checkbox" ${field.checked ? 'checked' : ''} disabled> ${field.label}</label>`;
+                case 'table':
+                    return `<div>Таблица ${field.rows}x${field.cols} (нажмите "Настроить" для редактирования)</div>`;
+                default:
+                    return '';
+            }
+        }
+
+        // Функция для открытия панели конфигурации
+        function openConfigPanel(field) {
+            // Создаем модальное окно
+            const modal = document.createElement('div');
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100%';
+            modal.style.height = '100%';
+            modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+            modal.style.display = 'flex';
+            modal.style.justifyContent = 'center';
+            modal.style.alignItems = 'center';
+            modal.style.zIndex = '1000';
+
+            // Содержимое модального окна
+            modal.innerHTML = `
+                <div style="background: white; padding: 20px; border-radius: 8px; width: 600px; max-height: 80vh; overflow-y: auto;">
+                    <h3>Настройка поля: ${field.type}</h3>
+                    <div class="config-form">
+                        ${getConfigForm(field)}
+                    </div>
+                    <div style="margin-top: 20px; text-align: right;">
+                        <button id="save-config" class="btn">Сохранить</button>
+                        <button id="cancel-config" class="btn btn-danger">Отмена</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Обработчики событий
+            document.getElementById('save-config').addEventListener('click', () => {
+                saveFieldConfig(field, modal);
+            });
+
+            document.getElementById('cancel-config').addEventListener('click', () => {
+                document.body.removeChild(modal);
+            });
+
+            // Обработчики для опций выпадающего списка
+            if (field.type === 'select') {
+                document.getElementById('add-option').addEventListener('click', () => {
+                    const optionsContainer = document.getElementById('select-options');
+                    const newOptionIndex = optionsContainer.querySelectorAll('.option-item').length;
+
+                    const optionElement = document.createElement('div');
+                    optionElement.className = 'option-item';
+                    optionElement.innerHTML = `
+                        <input type="text" placeholder="Значение" class="option-value">
+                        <input type="text" placeholder="Метка" class="option-label">
+                        <select class="option-mod-type">
+                            <option value="add">+ Добавить</option>
+                            <option value="multiply">× Умножить</option>
+                        </select>
+                        <input type="number" placeholder="Значение" class="option-mod-value" step="0.01" value="0">
+                        <button type="button" class="btn btn-sm btn-danger delete-option">×</button>
+                    `;
+
+                    optionsContainer.appendChild(optionElement);
+
+                    // Обработчик удаления опции
+                    optionElement.querySelector('.delete-option').addEventListener('click', (e) => {
+                        e.target.closest('.option-item').remove();
+                    });
+                });
+
+                // Обработчики удаления для существующих опций
+                document.querySelectorAll('.delete-option').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.target.closest('.option-item').remove();
+                    });
+                });
+            }
+
+            // Обработчики для таблицы
+            if (field.type === 'table') {
+                const tableBuilder = modal.querySelector('.table-builder');
+
+                // Функция для отрисовки таблицы
+                function renderTable() {
+                    const tableContainer = modal.querySelector('.table-container');
+                    tableContainer.innerHTML = '';
+
+                    // Добавляем поля для ввода названий строк и столбцов
+                    const rowLabelsDiv = document.createElement('div');
+                    rowLabelsDiv.style.marginBottom = '10px';
+                    rowLabelsDiv.innerHTML = '<strong>Названия строк:</strong>';
+
+                    const colLabelsDiv = document.createElement('div');
+                    colLabelsDiv.style.marginBottom = '10px';
+                    colLabelsDiv.innerHTML = '<strong>Названия столбцов:</strong>';
+
+                    // Поля для названий строк
+                    const rowInputsContainer = document.createElement('div');
+                    rowInputsContainer.style.display = 'flex';
+                    rowInputsContainer.style.gap = '5px';
+                    rowInputsContainer.style.marginBottom = '10px';
+
+                    for (let i = 0; i < field.rows; i++) {
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.value = field.row_labels[i] || `Строка ${i+1}`;
+                        input.dataset.rowIndex = i;
+                        input.addEventListener('change', (e) => {
+                            field.row_labels[e.target.dataset.rowIndex] = e.target.value;
+                        });
+                        rowInputsContainer.appendChild(input);
+                    }
+                    rowLabelsDiv.appendChild(rowInputsContainer);
+
+                    // Поля для названий столбцов
+                    const colInputsContainer = document.createElement('div');
+                    colInputsContainer.style.display = 'flex';
+                    colInputsContainer.style.gap = '5px';
+                    colInputsContainer.style.marginBottom = '10px';
+
+                    for (let j = 0; j < field.cols; j++) {
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.value = field.col_labels[j] || `Колонка ${j+1}`;
+                        input.dataset.colIndex = j;
+                        input.addEventListener('change', (e) => {
+                            field.col_labels[e.target.dataset.colIndex] = e.target.value;
+                        });
+                        colInputsContainer.appendChild(input);
+                    }
+                    colLabelsDiv.appendChild(colInputsContainer);
+
+                    tableContainer.appendChild(rowLabelsDiv);
+                    tableContainer.appendChild(colLabelsDiv);
+
+                    // Создаем саму таблицу
+                    const table = document.createElement('table');
+                    const tbody = document.createElement('tbody');
+
+                    // Заголовки столбцов
+                    const thead = document.createElement('thead');
+                    const headerRow = document.createElement('tr');
+                    headerRow.innerHTML = '<th></th>'; // Пустая ячейка для заголовков строк
+
+                    for (let j = 0; j < field.cols; j++) {
+                        const th = document.createElement('th');
+                        th.textContent = field.col_labels[j] || `Колонка ${j+1}`;
+                        headerRow.appendChild(th);
+                    }
+
+                    thead.appendChild(headerRow);
+                    table.appendChild(thead);
+
+                    // Строки таблицы
+                    for (let i = 0; i < field.rows; i++) {
+                        const row = document.createElement('tr');
+                        const rowHeader = document.createElement('th');
+                        rowHeader.textContent = field.row_labels[i] || `Строка ${i+1}`;
+                        row.appendChild(rowHeader);
+
+                        for (let j = 0; j < field.cols; j++) {
+                            const cell = document.createElement('td');
+                            const cellData = field.cells[i] && field.cells[i][j] || {
+                                mod_type: 'add',
+                                mod_value: 0
+                            };
+
+                            cell.innerHTML = `
+                                <select class="cell-mod-type">
+                                    <option value="add" ${cellData.mod_type === 'add' ? 'selected' : ''}>+ Добавить</option>
+                                    <option value="multiply" ${cellData.mod_type === 'multiply' ? 'selected' : ''}>× Умножить</option>
+                                </select>
+                                <input type="number" class="cell-mod-value" value="${cellData.mod_value}" step="0.01">
+                            `;
+
+                            row.appendChild(cell);
+                        }
+
+                        tbody.appendChild(row);
+                    }
+
+                    table.appendChild(tbody);
+                    tableContainer.appendChild(table);
+                }
+
+                // Инициализация таблицы
+                renderTable();
+
+                modal.querySelector('#table-rows').addEventListener('change', (e) => {
+                const newRows = parseInt(e.target.value) || 1;
+                if (newRows !== field.rows) {
+                    // Обновляем массив названий строк
+                    while (field.row_labels.length < newRows) {
+                        field.row_labels.push(`Строка ${field.row_labels.length + 1}`);
+                    }
+                    while (field.row_labels.length > newRows) {
+                        field.row_labels.pop();
+                    }
+
+                    // Обновляем массив cells
+                    while (field.cells.length < newRows) {
+                        field.cells.push([]);
+                        for (let j = 0; j < field.cols; j++) {
+                            field.cells[field.cells.length-1][j] = {
+                                mod_type: 'add',
+                                mod_value: 0
+                            };
+                        }
+                    }
+                    while (field.cells.length > newRows) {
+                        field.cells.pop();
+                    }
+
+                    field.rows = newRows;
+                    renderTable();
+                }
+            });
+
+            modal.querySelector('#table-cols').addEventListener('change', (e) => {
+                const newCols = parseInt(e.target.value) || 1;
+                if (newCols !== field.cols) {
+                    // Обновляем массив названий столбцов
+                    while (field.col_labels.length < newCols) {
+                        field.col_labels.push(`Колонка ${field.col_labels.length + 1}`);
+                    }
+                    while (field.col_labels.length > newCols) {
+                        field.col_labels.pop();
+                    }
+
+                    // Обновляем массив cells
+                    for (let i = 0; i < field.rows; i++) {
+                        if (!field.cells[i]) field.cells[i] = [];
+                        while (field.cells[i].length < newCols) {
+                            field.cells[i].push({
+                                mod_type: 'add',
+                                mod_value: 0
+                            });
+                        }
+                        while (field.cells[i].length > newCols) {
+                            field.cells[i].pop();
+                        }
+                    }
+
+                    field.cols = newCols;
+                    renderTable();
+                }
+            });
+
+                // Обработчики для добавления/удаления строк и столбцов
+                modal.querySelector('.add-row-btn').addEventListener('click', () => {
+                    field.rows++;
+                    // Добавляем новую строку в cells
+                    field.cells.push([]);
+                    for (let j = 0; j < field.cols; j++) {
+                        field.cells[field.rows-1][j] = {
+                            label: `Ячейка ${field.rows}-${j+1}`,
+                            mod_type: 'add',
+                            mod_value: 0
+                        };
+                    }
+                    renderTable();
+                });
+
+                modal.querySelector('.remove-row-btn').addEventListener('click', () => {
+                    if (field.rows > 1) {
+                        field.rows--;
+                        field.cells.pop();
+                        renderTable();
+                    }
+                });
+
+                modal.querySelector('.add-col-btn').addEventListener('click', () => {
+                    field.cols++;
+                    // Добавляем новый столбец во все строки
+                    for (let i = 0; i < field.rows; i++) {
+                        if (!field.cells[i]) field.cells[i] = [];
+                        field.cells[i][field.cols-1] = {
+                            label: `Ячейка ${i+1}-${field.cols}`,
+                            mod_type: 'add',
+                            mod_value: 0
+                        };
+                    }
+                    renderTable();
+                });
+
+                modal.querySelector('.remove-col-btn').addEventListener('click', () => {
+                    if (field.cols > 1) {
+                        field.cols--;
+                        // Удаляем последний столбец из всех строк
+                        for (let i = 0; i < field.rows; i++) {
+                            if (field.cells[i]) {
+                                field.cells[i].pop();
+                            }
+                        }
+                        renderTable();
+                    }
+                });
+            }
+        }
+
+        // Функция для получения HTML формы конфигурации
+        function getConfigForm(field) {
+            let html = `
+                <div class="form-group">
+                    <label>Параметр</label>
+                    <input type="text" id="field-label" value="${field.label}">
+                </div>
+            `;
+
+            // Добавляем поле "Цена" для всех типов полей
+            html += `
+                <div class="form-group">
+                    <label>Модификатор цены:</label>
+            `;
+
+            switch(field.type) {
+                case 'select':
+                    html += `
+                        <p><small>Для выпадающего списка модификатор указывается для каждой опции</small></p>
+                        <div class="form-group">
+                            <label>Опции</label>
+                            <div id="select-options">
+                                ${field.options.map((opt, index) => `
+                                    <div class="option-item">
+                                        <input type="text" placeholder="Значение" value="${opt.value}" class="option-value">
+                                        <input type="text" placeholder="Метка" value="${opt.label}" class="option-label">
+                                        <select class="option-mod-type">
+                                            <option value="add" ${opt.mod_type === 'add' ? 'selected' : ''}>+ Добавить</option>
+                                            <option value="multiply" ${opt.mod_type === 'multiply' ? 'selected' : ''}>× Умножить</option>
+                                        </select>
+                                        <input type="number" placeholder="Значение" value="${opt.mod_value}" class="option-mod-value" step="0.01">
+                                        <button type="button" class="btn btn-sm btn-danger delete-option">×</button>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <button type="button" id="add-option" class="btn">Добавить опцию</button>
+                        </div>
+                    `;
+                    break;
+
+                case 'number':
+                    html += `
+                        <p><small>Для числового поля используется добавление стоимости за единицу</small></p>
+                        <div class="form-group">
+                            <label>Цена за единицу:</label>
+                            <input type="number" id="field-price-mod" value="${field.price_mod}" step="1" class="price-input" min="0">
+                        </div>
+                    `;
+                    break;
+
+                case 'checkbox':
+                    html += `
+                        <div class="form-group">
+                            <label>Тип модификатора:</label>
+                            <select id="field-mod-type">
+                                <option value="add" ${field.mod_type === 'add' ? 'selected' : ''}>+ Добавить к цене</option>
+                                <option value="multiply" ${field.mod_type === 'multiply' ? 'selected' : ''}>× Умножить цену</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Значение модификатора:</label>
+                            <input type="number" id="field-mod-value" value="${field.mod_value}" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="field-checked" ${field.checked ? 'checked' : ''}>
+                                Выбрано по умолчанию
+                            </label>
+                        </div>
+                    `;
+                    break;
+
+                case 'table':
+                    html += `
+                        <div class="form-group">
+                            <label>Размер таблицы:</label>
+                            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                <div>
+                                    <label>Строки:</label>
+                                    <input type="number" id="table-rows" value="${field.rows}" min="1" max="20" style="width: 60px;">
+                                </div>
+                                <div>
+                                    <label>Столбцы:</label>
+                                    <input type="number" id="table-cols" value="${field.cols}" min="1" max="20" style="width: 60px;">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="allow-no-selection" ${field.allow_no_selection ? 'checked' : ''}>
+                                    Разрешить не выбирать ничего
+                                </label>
+                            </div>
+                            <div class="table-buttons" style="margin-bottom: 15px;">
+                                <button type="button" class="btn btn-sm add-row-btn">Добавить строку</button>
+                                <button type="button" class="btn btn-sm remove-row-btn">Удалить строку</button>
+                                <button type="button" class="btn btn-sm add-col-btn">Добавить столбец</button>
+                                <button type="button" class="btn btn-sm remove-col-btn">Удалить столбец</button>
+                            </div>
+                            <div class="table-container"></div>
+                        </div>
+                    `;
+                    break;
+            }
+            if (field.name === 'quantity') {
+                html += `<p><small>Это поле обязательно и не может быть удалено</small></p>`;
+            }
+            return html;
+        }
+
+        // Функция для сохранения конфигурации поля
+        function saveFieldConfig(field, modal) {
+            if (field.name === 'quantity') {
+                field.name = 'quantity'; // Гарантируем неизменность имени
+                field.label = 'Количество'; // Гарантируем неизменность названия
+            }
+            // Сохраняем название вопроса
+            field.label = document.getElementById('field-label').value;
+
+            // Сохраняем специфичные настройки
+            switch(field.type) {
+                case 'select':
+                    const options = [];
+                    document.querySelectorAll('.option-item').forEach(item => {
+                        const value = item.querySelector('.option-value').value;
+                        const label = item.querySelector('.option-label').value;
+                        const mod_type = item.querySelector('.option-mod-type').value;
+                        const mod_value = parseFloat(item.querySelector('.option-mod-value').value) || 0;
+
+                        if (value && label) {
+                            options.push({value, label, mod_type, mod_value});
+                        }
+                    });
+                    field.options = options;
+                    break;
+
+                case 'number':
+                    field.price_mod = parseFloat(document.getElementById('field-price-mod').value) || 0;
+                    break;
+
+                case 'checkbox':
+                    field.mod_type = document.getElementById('field-mod-type').value;
+                    field.mod_value = parseFloat(document.getElementById('field-mod-value').value) || 0;
+                    field.checked = document.getElementById('field-checked').checked;
+                    break;
+
+                case 'table':
+                // Сохраняем данные ячеек
+                const table = modal.querySelector('table');
+                if (table) {
+                    const rows = table.querySelectorAll('tbody tr');
+                    rows.forEach((row, i) => {
+                        if (!field.cells[i]) field.cells[i] = [];
+                        const cells = row.querySelectorAll('td');
+                        cells.forEach((cell, j) => {
+                            field.cells[i][j] = {
+                                mod_type: cell.querySelector('.cell-mod-type').value,
+                                mod_value: parseFloat(cell.querySelector('.cell-mod-value').value) || 0
+                            };
+                        });
+                    });
+                }
+                break;
+            }
+
+            // Обновляем предпросмотр
+            const previewElement = document.querySelector(`.form-group[data-id="${field.id}"] .field-preview`);
+            if (previewElement) {
+                previewElement.innerHTML = getFieldPreview(field);
+            }
+
+            // Обновляем заголовок
+            const headerElement = document.querySelector(`.form-group[data-id="${field.id}"] .field-header span`);
+            if (headerElement) {
+                headerElement.textContent = `${field.label} (${field.type})`;
+            }
+
+            // Закрываем модальное окно
+            document.body.removeChild(modal);
+        }
+
+        // Инициализация перетаскивания
+        fieldItems.forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', e.target.dataset.type);
+                e.target.classList.add('dragging');
+            });
+
+            item.addEventListener('dragend', (e) => {
+                e.target.classList.remove('dragging');
+            });
+        });
+
+        formPreview.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            formPreview.classList.add('dragover');
+        });
+
+        formPreview.addEventListener('dragleave', () => {
+            formPreview.classList.remove('dragover');
+        });
+
+        formPreview.addEventListener('drop', (e) => {
+            e.preventDefault();
+            formPreview.classList.remove('dragover');
+
+            const fieldType = e.dataTransfer.getData('text/plain');
+            const newField = createField(fieldType);
+            formConfig.push(newField);
+            renderField(newField);
+        });
+
+        // Сохранение формы
+        document.getElementById('save-form').addEventListener('click', () => {
+            // Возвращаем конфигурацию в родительское окно
+            if (window.opener) {
+                window.opener.postMessage({
+                    type: 'form-config',
+                    config: formConfig
+                }, window.opener.location.origin);
+            }
+            window.close();
+        });
+
+        // Отмена
+        document.getElementById('cancel').addEventListener('click', () => {
+            window.close();
+        });
+    </script>
+</body>
+</html>
