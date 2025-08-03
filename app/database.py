@@ -125,15 +125,13 @@ def get_product(product_id: int):
         product = cursor.fetchone()
         if product:
             product = dict(product)
-            # Правильно обрабатываем form_config
-            if product.get("form_config"):
-                try:
-                    # Декодируем JSON строку в объект Python
-                    product["form_config"] = json.loads(product["form_config"])
-                except json.JSONDecodeError:
-                    product["form_config"] = None
-            else:
-                product["form_config"] = None
+            # Получаем значение form_config из базы данных
+            db_form_config = product.get("form_config")
+            try:
+                # Декодируем JSON строку в объект Python, если она не пустая
+                product["form_config"] = json.loads(db_form_config) if db_form_config else {}
+            except (json.JSONDecodeError, TypeError):
+                product["form_config"] = {}
         return product
 
 
@@ -141,42 +139,36 @@ def add_product(name: str, description: str, price: float = 0.0, form_config: di
     with db_connection() as conn:
         try:
             cursor = conn.cursor()
-            form_config_json = json.dumps(form_config, ensure_ascii=False) if form_config else None
+            # Всегда преобразуем form_config в JSON, даже если None
+            form_config_json = json.dumps(form_config or {}, ensure_ascii=False)
 
-            # Начинаем транзакцию
+            # Остальной код остается без изменений
             conn.execute("BEGIN TRANSACTION")
-
-            # Добавляем товар
             cursor.execute(
                 "INSERT INTO products (name, description, price, form_config) VALUES (?, ?, ?, ?)",
                 (name, description, price, form_config_json)
             )
             product_id = cursor.lastrowid
 
-            # Добавляем категории
             if categories:
                 for category_name in categories:
-                    # Проверяем существование категории
                     category = get_category_by_name(category_name)
                     if not category:
-                        # Создаем новую категорию, если не существует
                         cursor.execute("INSERT INTO categories (name) VALUES (?)", (category_name,))
                         category_id = cursor.lastrowid
                     else:
                         category_id = category['id']
 
-                    # Связываем товар с категорией
                     cursor.execute(
                         "INSERT INTO product_categories (product_id, category_id) VALUES (?, ?)",
                         (product_id, category_id)
                     )
 
-            # Фиксируем транзакцию
             conn.commit()
             return product_id
         except sqlite3.Error as e:
             print(f"Database error: {e}")
-            conn.rollback()  # Откатываем транзакцию при ошибке
+            conn.rollback()
             return None
 
 

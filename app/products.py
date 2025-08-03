@@ -70,23 +70,20 @@ async def add_product_view(
     if not name or price < 0:
         return RedirectResponse("/?error=Некорректные данные товара", status_code=302)
 
-    form_config_obj = None
+    form_config_obj = {}  # По умолчанию пустой словарь
     if form_config and form_config != "null":
         try:
             form_config_obj = json.loads(form_config)
-
-            # Обрабатываем таблицы - добавляем allow_no_selection, если не указано
+            # Обрабатываем таблицы
             for field in form_config_obj:
                 if field.get('type') == 'table' and 'allow_no_selection' not in field:
                     field['allow_no_selection'] = False
-
         except json.JSONDecodeError as e:
             print(f"Ошибка декодирования form_config: {e}")
             return RedirectResponse("/?error=Ошибка в конфигурации формы", status_code=302)
 
     product_id = add_product(name, description, price, form_config_obj, category_list)
-    print(f"Result of add_product: {product_id}")  # Логирование
-
+    print(f"Result of add_product: {product_id}")
 
     if not product_id:
         return RedirectResponse("/?error=Ошибка при добавлении товара", status_code=302)

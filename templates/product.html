@@ -214,7 +214,7 @@
                     numberInput.name = field.name;
                     numberInput.min = field.min || 1;
                     numberInput.max = field.max || 1000000;
-                    numberInput.value = field.default || 1;
+                    numberInput.value = field.default || 0;
                     input = numberInput;
                     formData[field.name] = numberInput.value;
                     break;
@@ -336,7 +336,9 @@
                         radios.forEach(radio => {
                             if (radio.value !== 'none') {
                                 radio.checked = false;
-                            }calculatePrice();
+                            }
+                        });
+                        calculatePrice();
                     });
 
                     actionsDiv.appendChild(clearBtn);
