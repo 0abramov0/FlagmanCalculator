@@ -356,17 +356,9 @@
 
         // Функция расчета цены
         function calculatePrice() {
-            let quantity = 1;
-            const quantityField = formConfig.find(field => field.name === 'quantity' && field.type === 'number');
-            if (quantityField) {
-                quantity = parseFloat(formData['quantity']) || 1;
-            }
-
-            let total = basePrice * quantity;
+            let total = basePrice;
 
             formConfig.forEach(field => {
-                if (field.name === 'quantity') return;
-
                 switch(field.type) {
                     case 'select':
                         const selectedOption = form.querySelector(`#${field.name} option:checked`);
