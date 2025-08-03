@@ -235,19 +235,6 @@
             return field;
         }
 
-        function createQuantityField() {
-            return {
-                id: `field-quantity-${Date.now()}`,
-                type: 'number',
-                label: 'Количество',
-                name: 'quantity',
-                min: 1,
-                max: 1000000,
-                default: 1,
-                price_mod: 0
-            };
-        }
-
         // Функция для отображения поля в предпросмотре
         function renderField(field) {
             const fieldElement = document.createElement('div');
@@ -279,11 +266,6 @@
                 const id = e.target.dataset.id;
                 openConfigPanel(formConfig.find(f => f.id === id));
             });
-
-            if (field.name === 'quantity') {
-                const deleteButton = fieldElement.querySelector('.delete-field');
-                deleteButton.style.display = 'none';
-            }
         }
 
         // Функция для предпросмотра поля
@@ -706,18 +688,11 @@
                     `;
                     break;
             }
-            if (field.name === 'quantity') {
-                html += `<p><small>Это поле обязательно и не может быть удалено</small></p>`;
-            }
             return html;
         }
 
         // Функция для сохранения конфигурации поля
         function saveFieldConfig(field, modal) {
-            if (field.name === 'quantity') {
-                field.name = 'quantity'; // Гарантируем неизменность имени
-                field.label = 'Количество'; // Гарантируем неизменность названия
-            }
             // Сохраняем название вопроса
             field.label = document.getElementById('field-label').value;
 

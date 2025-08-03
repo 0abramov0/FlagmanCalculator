@@ -75,20 +75,6 @@ async def add_product_view(
         try:
             form_config_obj = json.loads(form_config)
 
-            # Добавляем поле quantity, если его нет
-            has_quantity = any(field.get('name') == 'quantity' for field in form_config_obj)
-            if not has_quantity:
-                quantity_field = {
-                    'type': 'number',
-                    'label': 'Количество',
-                    'name': 'quantity',
-                    'min': 1,
-                    'max': 1000000,
-                    'default': 1,
-                    'price_mod': 0
-                }
-                form_config_obj.insert(0, quantity_field)
-
             # Обрабатываем таблицы - добавляем allow_no_selection, если не указано
             for field in form_config_obj:
                 if field.get('type') == 'table' and 'allow_no_selection' not in field:

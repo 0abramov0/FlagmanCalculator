@@ -138,23 +138,6 @@ def get_product(product_id: int):
 
 
 def add_product(name: str, description: str, price: float = 0.0, form_config: dict = None, categories: list = None):
-    if form_config:
-        # Проверяем, есть ли уже поле "Количество" в конфигурации
-        has_quantity = any(field.get('name') == 'quantity' for field in form_config)
-
-        if not has_quantity:
-            # Добавляем поле "Количество" только если его нет
-            quantity_field = {
-                'type': 'number',
-                'label': 'Количество',
-                'name': 'quantity',
-                'min': 1,
-                'max': 1000000,
-                'default': 1,
-                'price_mod': 0
-            }
-            form_config.insert(0, quantity_field)
-
     with db_connection() as conn:
         try:
             cursor = conn.cursor()
